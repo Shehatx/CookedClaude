@@ -36,6 +36,15 @@ class TestCalculator(unittest.TestCase):
         result = self.calculator.evaluate("2 * 3 - 8 / 2 + 5")
         self.assertEqual(result, 7)
 
+    def test_exponentiation(self) -> None:
+        self.assertEqual(self.calculator.evaluate("2 ^ 3"), 8)
+
+    def test_exponentiation_precedence(self) -> None:
+        self.assertEqual(self.calculator.evaluate("2 + 3 ^ 2 * 2"), 20)
+
+    def test_exponentiation_is_right_associative(self) -> None:
+        self.assertEqual(self.calculator.evaluate("2 ^ 3 ^ 2"), 512)
+
     def test_empty_expression(self) -> None:
         result = self.calculator.evaluate("")
         self.assertIsNone(result)
