@@ -11,6 +11,7 @@ class Calculator:
             "*": lambda a, b: a * b,
             "/": lambda a, b: a / b,
         }
+        # Higher numbers bind more tightly.
         self.precedence: dict[str, int] = {
             "+": 1,
             "-": 1,

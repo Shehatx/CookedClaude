@@ -42,7 +42,10 @@ schema_run_python_file = {
                     "description": "Directory path to the file we want to run",
                 },
                 "args": {
-                    "type": "list",
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                    },
                     "description": "Additional arguments that we can add while running the python file",
                 }                
             },

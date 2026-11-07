@@ -12,7 +12,7 @@ if api_key == None:
     raise RuntimeError("Unable to fetch API Key")
 
 client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
+    base_url="https://api.openai.com/v1",
     api_key=api_key,
 )
 parser = argparse.ArgumentParser(description="Chatbot")
@@ -27,30 +27,38 @@ messages = [
     {"role": "user", "content": args.prompt_text},
 ]
 
-response = client.chat.completions.create(
-    model="openrouter/free",
-    messages=messages,
-    tools=available_functions,
-)
+for _ in range(20):
+    response = client.chat.completions.create(
+        model="gpt-6-luna",
+        messages=messages,
+        tools=available_functions,
+        reasoning_effort="none",
+    )
 
-message = response.choices[0].message
+    message = response.choices[0].message
+    messages.append(message)
 
-if message.tool_calls:
-    for tool_call in message.tool_calls:
-        result_message = call_function(tool_call=tool_call, verbose=args.verbose)
-        function_args = json.loads(tool_call.function.arguments or "{}")
-        if result_message["content"] == None:
-            raise Exception()
+    if message.tool_calls:
+        for tool_call in message.tool_calls:
+            result_message = call_function(tool_call=tool_call, verbose=args.verbose)
+            function_args = json.loads(tool_call.function.arguments or "{}")
+            if result_message["content"] == None:
+                raise Exception()
+            if args.verbose:
+                print(f"-> {result_message['content']}")
+            print(f"Calling function: {tool_call.function.name}({function_args})")
+            messages.append(result_message)
+    else:
         if args.verbose:
-            print(f"-> {result_message['content']}")
-        print(f"Calling function: {tool_call.function.name}({function_args})")
-
-if args.verbose:
-    print(f"User prompt: {prompt_text}")
-    print(f"Prompt tokens: {response.usage.prompt_tokens}")
-    print(f"Response tokens: {response.usage.completion_tokens}")
-    if response.choices[0].message.content:
-        print(f"Response: {response.choices[0].message.content}")
+            print(f"User prompt: {prompt_text}")
+            print(f"Prompt tokens: {response.usage.prompt_tokens}")
+            print(f"Response tokens: {response.usage.completion_tokens}")
+            if response.choices[0].message.content:
+                print(f"Response: {response.choices[0].message.content}")
+        else:
+            if response.choices[0].message.content:
+                print(f"Response: {response.choices[0].message.content}")
+        break
 else:
-    if response.choices[0].message.content:
-        print(f"Response: {response.choices[0].message.content}")
+    print("Limit reached with no final response")
+    exit(1)
