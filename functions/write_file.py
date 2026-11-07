@@ -1,37 +1,40 @@
 import os
 
+from functions.path_utils import resolve_in_working_directory
+
+
 def write_file(working_directory: str, file_path: str, content: str) -> str:
-    working_dir_abs = os.path.abspath(working_directory)
-    file_path = os.path.join(working_directory, file_path)
-    valid_target_dir = os.path.commonpath([working_dir_abs, os.path.abspath(file_path)]) == working_dir_abs
-    if not valid_target_dir:
+    target = resolve_in_working_directory(working_directory, file_path)
+    if target is None:
         return f'Error: Cannot write to "{file_path}" as it is outside the permitted working directory'
-    if os.path.isdir(file_path):
+    if os.path.isdir(target):
         return f'Error: Cannot write to "{file_path}" as it is a directory'
+
     try:
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        opened_file = open(file_path, 'w')
-        opened_file.write(content)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, "w", encoding="utf-8") as f:
+            f.write(content)
         return f'Successfully wrote to "{file_path}" ({len(content)} characters written)'
-    except Exception as e:
-        return f'Error: {e}'
+    except OSError as e:
+        return f"Error: {e}"
+
 
 schema_write_file = {
     "type": "function",
     "function": {
         "name": "write_file",
-        "description": "Writes content to a file given the file_path and the content",
+        "description": "Creates or overwrites a file with the given content. Parent directories are created if needed.",
         "parameters": {
             "type": "object",
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Directory path to the file we want to write content to",
+                    "description": "Path to the file, relative to the working directory.",
                 },
                 "content": {
                     "type": "string",
-                    "description": "The content we would like to write to the file",
-                },             
+                    "description": "The full content to write to the file.",
+                },
             },
             "required": ["file_path", "content"],
         },

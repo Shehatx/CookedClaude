@@ -8,3 +8,12 @@ dependencies = [
     "openai==2.44.0",
     "python-dotenv==1.1.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

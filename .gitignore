@@ -12,3 +12,8 @@ wheels/
 
 #MacOS
 .DS_Store
+# macOS
+.DS_Store
+
+# Tooling caches
+.pytest_cache/

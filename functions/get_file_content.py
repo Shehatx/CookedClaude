@@ -1,35 +1,37 @@
 import os
+
 from config import MAX_CHARS
+from functions.path_utils import resolve_in_working_directory
+
 
 def get_file_content(working_directory: str, file_path: str) -> str:
-    working_dir_abs = os.path.abspath(working_directory)
-    file_path = os.path.join(working_directory, file_path)
-    valid_target_dir = os.path.commonpath([working_dir_abs, os.path.abspath(file_path)]) == working_dir_abs
-    if not valid_target_dir:
+    target = resolve_in_working_directory(working_directory, file_path)
+    if target is None:
         return f'Error: Cannot read "{file_path}" as it is outside the permitted working directory'
-    if not os.path.isfile(file_path):
+    if not os.path.isfile(target):
         return f'Error: File not found or is not a regular file: "{file_path}"'
+
     try:
-        file = open(file_path, 'r')
-        file_string = file.read(MAX_CHARS)
-        if file.read(1):
-            file_string += f'[...File "{file_path}" truncated at {MAX_CHARS} characters]'
-        return file_string
-    except Exception as e:
-        return f'Error: {e}'
+        with open(target, "r", encoding="utf-8") as f:
+            content = f.read(MAX_CHARS)
+            if f.read(1):
+                content += f'\n[...File "{file_path}" truncated at {MAX_CHARS} characters]'
+        return content
+    except (OSError, UnicodeDecodeError) as e:
+        return f"Error: {e}"
 
 
 schema_get_file_content = {
     "type": "function",
     "function": {
         "name": "get_file_content",
-        "description": "Returns the content in a file after as a string reading only up to 10000 chars",
+        "description": f"Returns the contents of a file as text. Files longer than {MAX_CHARS} characters are truncated.",
         "parameters": {
             "type": "object",
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Directory path to the file we want to read it's content",
+                    "description": "Path to the file, relative to the working directory.",
                 },
             },
             "required": ["file_path"],

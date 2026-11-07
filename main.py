@@ -1,64 +1,100 @@
+import argparse
 import os
+import sys
+
 from dotenv import load_dotenv
 from openai import OpenAI
-import argparse
-from prompts import system_prompt
+
 from call_function import available_functions, call_function
-import json
+from config import DEFAULT_MAX_ITERATIONS, DEFAULT_MODEL, DEFAULT_WORKING_DIRECTORY
+from prompts import system_prompt
 
-load_dotenv()
-api_key = os.environ.get("OPENAI_API_KEY")
-if api_key == None:
-    raise RuntimeError("Unable to fetch API Key")
 
-client = OpenAI(
-    base_url="https://api.openai.com/v1",
-    api_key=api_key,
-)
-parser = argparse.ArgumentParser(description="Chatbot")
-parser.add_argument("prompt_text", type=str, help="User prompt")
-parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
-args = parser.parse_args()
-prompt_text = args.prompt_text
-
-messages = [
-
-    {"role": "system", "content": system_prompt},
-    {"role": "user", "content": args.prompt_text},
-]
-
-for _ in range(20):
-    response = client.chat.completions.create(
-        model="gpt-6-luna",
-        messages=messages,
-        tools=available_functions,
-        reasoning_effort="none",
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="CookedClaude: an AI coding agent that works inside a sandboxed directory."
     )
+    parser.add_argument("prompt", help="What you want the agent to do")
+    parser.add_argument(
+        "--workdir",
+        default=DEFAULT_WORKING_DIRECTORY,
+        help=f"Directory the agent is allowed to work in (default: {DEFAULT_WORKING_DIRECTORY})",
+    )
+    parser.add_argument(
+        "--model",
+        default=DEFAULT_MODEL,
+        help=f"Model to use (default: {DEFAULT_MODEL})",
+    )
+    parser.add_argument(
+        "--max-iterations",
+        type=int,
+        default=DEFAULT_MAX_ITERATIONS,
+        help=f"Maximum number of model calls before giving up (default: {DEFAULT_MAX_ITERATIONS})",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print tool arguments, tool results, and token usage",
+    )
+    return parser.parse_args()
 
-    message = response.choices[0].message
-    messages.append(message)
 
-    if message.tool_calls:
+def main() -> int:
+    args = parse_args()
+
+    if not os.path.isdir(args.workdir):
+        print(f'Error: working directory "{args.workdir}" does not exist', file=sys.stderr)
+        return 1
+
+    load_dotenv()
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        print("Error: OPENAI_API_KEY is not set. Add it to a .env file.", file=sys.stderr)
+        return 1
+
+    client = OpenAI(api_key=api_key)
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": args.prompt},
+    ]
+
+    if args.verbose:
+        print(f"User prompt: {args.prompt}")
+        print(f"Working directory: {os.path.abspath(args.workdir)}\n")
+
+    for _ in range(args.max_iterations):
+        response = client.chat.completions.create(
+            model=args.model,
+            messages=messages,
+            tools=available_functions,
+            reasoning_effort="none",
+        )
+        message = response.choices[0].message
+        messages.append(message)
+
+        if args.verbose and response.usage:
+            print(
+                f"[tokens] prompt={response.usage.prompt_tokens} "
+                f"response={response.usage.completion_tokens}"
+            )
+
+        # No tool calls means the model is done and has given its final answer.
+        if not message.tool_calls:
+            print(f"\nFinal response:\n{message.content or '(no text returned)'}")
+            return 0
+
         for tool_call in message.tool_calls:
-            result_message = call_function(tool_call=tool_call, verbose=args.verbose)
-            function_args = json.loads(tool_call.function.arguments or "{}")
-            if result_message["content"] == None:
-                raise Exception()
+            result = call_function(tool_call, args.workdir, verbose=args.verbose)
             if args.verbose:
-                print(f"-> {result_message['content']}")
-            print(f"Calling function: {tool_call.function.name}({function_args})")
-            messages.append(result_message)
-    else:
-        if args.verbose:
-            print(f"User prompt: {prompt_text}")
-            print(f"Prompt tokens: {response.usage.prompt_tokens}")
-            print(f"Response tokens: {response.usage.completion_tokens}")
-            if response.choices[0].message.content:
-                print(f"Response: {response.choices[0].message.content}")
-        else:
-            if response.choices[0].message.content:
-                print(f"Response: {response.choices[0].message.content}")
-        break
-else:
-    print("Limit reached with no final response")
-    exit(1)
+                print(f"   -> {result['content']}")
+            messages.append(result)
+
+    print(
+        f"Error: stopped after {args.max_iterations} iterations without a final response",
+        file=sys.stderr,
+    )
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
