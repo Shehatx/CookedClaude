@@ -7,7 +7,7 @@ from call_function import available_functions, call_function
 import json
 
 load_dotenv()
-api_key = os.environ.get("OPENROUTER_API_KEY")
+api_key = os.environ.get("OPENAI_API_KEY")
 if api_key == None:
     raise RuntimeError("Unable to fetch API Key")
 

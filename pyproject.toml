@@ -1,7 +1,7 @@
 [project]
 name = "cookedclaude"
 version = "0.1.0"
-description = "Add your description here"
+description = "A small AI coding agent that reads, writes, and runs Python files in a sandboxed working directory"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
