@@ -10,6 +10,7 @@ class Calculator:
             "-": lambda a, b: a - b,
             "*": lambda a, b: a * b,
             "/": lambda a, b: a / b,
+            "^": lambda a, b: a**b,
         }
         # Higher numbers bind more tightly.
         self.precedence: dict[str, int] = {
@@ -17,6 +18,7 @@ class Calculator:
             "-": 1,
             "*": 2,
             "/": 2,
+            "^": 3,
         }
 
     def evaluate(self, expression: str) -> float | None:
@@ -31,10 +33,17 @@ class Calculator:
 
         for token in tokens:
             if token in self.operators:
+                # Exponentiation is right-associative; other operators are left-associative.
                 while (
                     operators
                     and operators[-1] in self.operators
-                    and self.precedence[operators[-1]] >= self.precedence[token]
+                    and (
+                        self.precedence[operators[-1]] > self.precedence[token]
+                        or (
+                            self.precedence[operators[-1]] == self.precedence[token]
+                            and token != "^"
+                        )
+                    )
                 ):
                     self._apply_operator(operators, values)
                 operators.append(token)
